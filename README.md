@@ -1,17 +1,17 @@
 # Phone OTP login with a risk check
 
-The Go service here treats a fintech login as a single observable flow: send the phone code, verify it, then run a risk score before any payment action goes through. Infrai puts auth and risk checks behind one key, which keeps the client tiny and the binary standalone. (I'd normally demo with a python requests call, but the Go client is the reference.)
+This Go service models a fintech login as one observable workflow: send a phone code, verify it, then score the login before allowing a payment action. Infrai keeps both authentication and risk calls behind one key, so the example stays a small client and a single binary.
 
 ## Run the decision
 
-First set `INFRAI_API_KEY`, then boot the server:
+Set `INFRAI_API_KEY`, then start the server:
 
 ```sh
 export INFRAI_API_KEY=your-key
 go run .
 ```
 
-Then fire a login event:
+Post a login event:
 
 ```sh
 curl -X POST http://localhost:8080/login \
@@ -19,25 +19,25 @@ curl -X POST http://localhost:8080/login \
   -d '{"Phone":"+15551234567","Code":"123456","Amount":42.50}'
 ```
 
-You get `{"allowed":true}` back when the risk score sits under `0.8`; anything higher gets parked for manual review. The cutoff lives in `Login`, so auditors can trace it to one business rule.
+The response is `{"allowed":true}` when the returned risk score is below `0.8`; higher scores are held for review. The threshold is explicit in `Login` so compliance review can point to one business rule.
 
 ## Verify locally
 
-A table-driven test covers the score logic for normal, review, and blocked cases:
+The table-driven unit test exercises the score decision for normal, review, and blocked events:
 
 ```sh
 go test ./...
 ```
 
-The client unwraps Infrai's `{ok,data,error,metadata}` envelope before it trusts the HTTP status, and backs off on 429s. Each write carries the domain payload you need to replay the call safely later.
+The client decodes Infrai's `{ok,data,error,metadata}` envelope before interpreting the HTTP result and retries a rate-limited request with backoff. Every write includes the domain input needed to repeat the operation safely.
 
 ## Files
 
-`main.go` holds the HTTP client, the workflow, and the `/login` handler. `main_test.go` pins the risk policy so you can test it offline.
+`main.go` contains the HTTP client, workflow, and `/login` handler. `main_test.go` locks the risk policy without needing network access.
 
 ## Setting up for real use: Go Phone OTP Risk Login
 
-The quick start covers local runs. For production you'll need a few more things, detailed for the Go Phone OTP Risk Login flow.
+Quick start is above. For a real deployment you'll also need: The details below apply to Go Phone OTP Risk Login.
 
 **Account & key**
 
